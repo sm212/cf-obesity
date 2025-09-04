@@ -3,9 +3,10 @@
 Objectives (taken from the data request form):
 
 1.	To describe the trend in BMI/BMI percentile of the UK cystic fibrosis population over the period 2007-2023, by summarizing the BMI/BMI percentiles distribution each year and by summarizing  the proportions of people classed as; underweight - BMI < 18.5 kg/m2 (adults) or <5th percentile (children) , healthy weight- BMI 18.5–24.9 kg/m2 (adults) or 5th–<85th percentile (children), overweight - BMI 25-29.9 kg/m2 (adults) or 85th-94.9th percentile (children), and obese - BMI ≥30 kg/m2 (adults) or  ≥95th percentile (children) and obese each year. This analysis will be done in:
-    a. The adult CF population > 18 years of age 
-    a. The paediatric CF population 2 years  to 17 years and 11 months of age
-    a. Subgroups of the CF population defined by CFTR modulator use
+
+	a. The adult CF population > 18 years of age
+	b. The paediatric CF population 2 years to 17 years and 11 months of age
+	c. Subgroups of the CF population defined by CFTR modulator use
 
 1. To describe the cross-sectional association between demographic/clinical factors and BMI/BMI percentile. Factors of interest include: sex, age, genotype, ethnicity, pancreatic status, diabetes status, age of diagnosis, lung function, socioeconomic status, exacerbation frequency and microbiology treatment. This analysis will be done separately in subgroups of the CF population, defined by CFTR modulator use
 

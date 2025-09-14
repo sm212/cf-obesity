@@ -33,8 +33,10 @@ tmp = reviews |>
                                       T ~ pancreatic_enzyme_suppl),
          fev = ifelse(is.na(cli_fev1_pct), s03cliqtrfev1pctpredicted, cli_fev1_pct),
          diabetes = s06cmpscfrddiabdiagnosis,    # Only from 2016 onwards
-         emp_status = s09employmentstatus) |>    # Only from 2016 onwards
-  select(regid_anon, death_dt_anon, patientdied, bmi, bmi_percentile,
+         emp_status = s09employmentstatus,       # Only from 2016 onwards
+         ht = ifelse(is.na(cli_qtr_ht), s01height, cli_qtr_ht),
+         wt = ifelse(is.na(cli_qtr_wt), s01weight, cli_qtr_wt)) |>    
+  select(regid_anon, death_dt_anon, patientdied, bmi, bmi_percentile, ht, wt,
          year, diag_dt, pancreatic_suppl, fev, diabetes, emp_status)
 
 # Add in demographic data

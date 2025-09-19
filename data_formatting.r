@@ -78,20 +78,70 @@ cross_sec = tmp |>
          age = year - birth_year,
          ageg = ifelse(age < 18, '0-17', '18+'),
          bmi = as.double(bmi),
-         bmi_percentile = as.double(bmi_percentile),
-         bmi_grp = case_when(ageg == '0-17' & bmi_percentile < 5 ~ 'Underweight',
+         ht = as.double(ht),
+         wt = as.double(wt),
+         bmi = ifelse(is.na(bmi) & !is.na(ht) & !is.na(wt), wt / (ht / 100)^2, bmi),
+         bmi_percentile = as.double(bmi_percentile)) |>
+  left_join(lkp_cftr)
+
+cross_sec = cross_sec |>
+         mutate(bmi_grp = case_when(ageg == '0-17' & bmi_percentile < 5 ~ 'Underweight',
                              ageg == '0-17' & bmi_percentile < 85 ~ 'Healthy weight',
                              ageg == '0-17' & bmi_percentile < 95 ~ 'Overweight',
                              ageg == '0-17' & bmi_percentile >= 95 ~ 'Obese',
                              ageg == '18+' & bmi < 18.5 ~ 'Underweight',
                              ageg == '18+' & bmi < 25 ~ 'Healthy weight',
                              ageg == '18+' & bmi < 30 ~ 'Overweight',
-                             ageg == '18+' & bmi >= 30 ~ 'Obese')) |>
-  left_join(lkp_cftr)
+                             ageg == '18+' & bmi >= 30 ~ 'Obese'))
 
 readr::write_csv(cross_sec, 'data/cross_sec.csv')
 
-table(cross_sec$sex)
-table(substr(cross_sec$ethn, 1,1))
-sort(table(cross_sec$mut1))
-hist(cross_sec$age)
+# Add in missing BMI centiles for children (needed for weight categories)
+#
+# The BMI lookups don't have every possible value of age and BMI, so just
+# get the row which is closest.
+lkp_files = dir('data/dedupe_lkp/', pattern = '*.csv', full.names = T)
+
+dfs = vector('list', length(lkp_files))
+for (i in 1:length(lkp_files)){
+  dfs[[i]] = readr::read_csv(lkp_files[i], show_col_types = F)
+}
+
+lkp_bmi = bind_rows(dfs)
+
+get_bmi = function(main, lkp, match_col = bmi, id_col = regid_anon){
+  # This looks a bit weird because it's vectorised and does some matrix
+  # algebra. The gist is, for each row in main, find the row in lkp which has
+  # the smallest euclidean distance (on age, sex, and match_col).
+  main =  main |>
+    filter(!is.na(sex), !is.na(age), !is.na({{match_col}})) |>
+    mutate(sex_num = ifelse(sex == 'M', 1, 2)) 
+  
+  match_ids = select(main, {{id_col}})
+  m_main = main |>
+    select(sex_num, age, {{match_col}}) |>
+    as.matrix()
+  
+  m_lkp = lkp |>
+    mutate(sex_num = ifelse(sex == 'male', 1, 2)) |>
+    select(sex_num, age = age_years, {{match_col}}) |>
+    as.matrix()
+  
+  # Want to compute pairwise distance matrix D, D[i,j] = ||A[i,] - B[j,]||^2:
+  # D[i,j] = (A[i,]-B[j,])(A[i,]-B[j,])^T [ok bc rows. A,B have same #columns]
+  #        = A[i,]A[i,]^T + B[j,]B[j,]^T - 2A[i,]B[j,]^T 
+  # The first bit is over all pairs, so use outer():
+  dist = outer(rowSums(m_main^2), rowSums(m_lkp^2), '+') - 2 * m_main %*% t(m_lkp)
+  nearest = max.col(-dist, ties.method = 'first')
+  
+  out = data.frame(regid_anon = match_ids,
+                   centile = lkp$centile[nearest],
+                   z_score = lkp$z_score[nearest])
+  return(out)
+}
+
+toc = Sys.time()
+a = get_bmi(cross_sec |> filter(age == 2, is.na(bmi_percentile)), 
+            lkp_bmi |> filter(floor(age_years) == 2))
+tic = Sys.time()
+tic-toc

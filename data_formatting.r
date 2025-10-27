@@ -5,6 +5,7 @@ library(tidyr)
 library(lubridate)
 
 sheets = excel_sheets('data/521A_Barrett_Output.xlsx')
+missing_pct = readr::read_csv('missing_percentiles.csv')
 annual_reviews = sheets[grepl('AR_', sheets)]
 
 # Read in sheets and combine into one dataframe
@@ -89,21 +90,26 @@ cross_sec = tmp |>
   filter(age > 0)
 
 # Add in missing BMI centiles for children (needed for weight categories)
-# Done in python - this just writes the missing data out:
+# Lookup done in python - code in repo.
 
 missing_child_bmi = cross_sec |>
   filter(between(age, 2, 17), is.na(bmi_percentile), !is.na(bmi)) |>
-  select(regid_anon, birth_dt, review_dt, year, age, sex, bmi)
-readr::write_csv(missing_child_bmi, 'data/missing_child_bmi.csv')
+  select(regid_anon, birth_dt, review_dt, year, age, sex, bmi) |>
+  left_join(missing_pct |>
+             select(regid_anon, year, bmi_pct = bmi_percentile))
 
-cross_sec = cross_sec |>
-         mutate(bmi_grp = case_when(ageg == '0-17' & bmi_percentile < 5 ~ 'Underweight',
+cross_sec = cross_sec |> 
+  left_join(missing_child_bmi |>
+              select(regid_anon, year, bmi_pct)) |>
+  mutate(bmi_percentile = ifelse(is.na(bmi_percentile), bmi_pct, bmi_percentile),
+         ageg = ifelse(age < 18, '0-17', '18+'),
+         bmi_grp = case_when(ageg == '0-17' & bmi_percentile < 5 ~ 'Underweight',
                              ageg == '0-17' & bmi_percentile < 85 ~ 'Healthy weight',
                              ageg == '0-17' & bmi_percentile < 95 ~ 'Overweight',
                              ageg == '0-17' & bmi_percentile >= 95 ~ 'Obese',
                              ageg == '18+' & bmi < 18.5 ~ 'Underweight',
                              ageg == '18+' & bmi < 25 ~ 'Healthy weight',
                              ageg == '18+' & bmi < 30 ~ 'Overweight',
-                             ageg == '18+' & bmi >= 30 ~ 'Obese'))
+                             ageg == '18+' & bmi >= 30 ~ 'Obese')) 
 
 readr::write_csv(cross_sec, 'data/cross_sec.csv')

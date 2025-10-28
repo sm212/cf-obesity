@@ -101,3 +101,32 @@ ggplot(trend_overall) +
   labs(x = 'Year', y = 'BMI', title = 'BMI over time',
        subtitle = 'Only people with a non-missing age shown')
 ggsave('img/trends.png', dpi = 300, height = 6, width = 7.17, units = 'in')
+
+n_year = cross_sec |>
+  select(regid_anon, year) |>
+  distinct() |>
+  complete(regid_anon, year) |> 
+  left_join(cross_sec |>
+              select(regid_anon, year) |>
+              mutate(present = T)) |>
+  mutate(present = ifelse(is.na(present), F, present)) |>
+  group_by(regid_anon) |>
+  mutate(rn = row_number(),
+         rn = ifelse(present, rn, 100),
+         type = case_when(present & rn == min(rn) ~ 'first appt',
+                          present & lag(present) ~ 'stayed in',
+                          !present & lag(present) ~ 'missed checkup',
+                          present & !lag(present) ~ 'came back',
+                          !present & !lag(present) ~ 'stayed out')) |> 
+  ungroup() |>
+  count(year, type)
+
+n_year |>
+  filter(!is.na(type)) |>
+  pivot_wider(names_from = 'type', values_from = 'n') |>
+  rowwise() |>
+  mutate(total = sum(`first appt`, `stayed in`, `came back`, na.rm = T)) |>
+  select(year, total, `first appt`, 
+         `attended & attended previous appt` = `stayed in`,
+         `attended & missed previous appt` = `came back`) |>
+  readr::write_csv('data/attend_types.csv')

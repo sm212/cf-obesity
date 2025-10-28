@@ -9,14 +9,9 @@ library(ggplot2)
 cross_sec = readr::read_csv('data/cross_sec.csv') |>
   mutate(bmi_grp = factor(bmi_grp, levels = c('Underweight', 'Healthy weight',
                                               'Overweight', 'Obese')),
-         ethn_grp = ifelse(substr(ethn, 1, 1) == 'W', 'White', 'Other'),
-         emp_status = case_when(emp_status %in% c('FT', 'PT', 'VW') ~ 'Employed (full or part time)',
-                                emp_status %in% c('NK') ~ 'Unknown',
-                                emp_status %in% c('HM', 'Di', 'Un') ~ 'Not employed (disabled, homemaker, or unemployed)',
-                                emp_status == 'R' ~ 'Retired',
-                                emp_status == 'St' ~ 'Student'))
-
-lkp_mutation = readr::read_csv('data/US_UK_fun_classes.csv')
+         mutation_type = case_when(mut1 & mut2 ~ 'Homozygous F508del',
+                                   mut1 + mut2 == 1 ~ 'Heterozygous F508del',
+                                   T ~ 'Other - no F508del'))
 
 thm = function(){
   theme() %+replace% 
@@ -76,27 +71,31 @@ plot_trend = function(df, facet = NULL, fname = NULL, ...){
 
 overall_bmi_grp = trend(cross_sec, c('year', 'bmi_grp'))
 ageg_bmi_grp    = trend(cross_sec, c('year', 'ageg', 'bmi_grp')) 
-cftr_bmi_grp    = trend(cross_sec, c('year', 'drugname', 'bmi_grp')) |> filter(drugname != 'Other (Please specify)')
-ethn_bmi_grp    = trend(cross_sec, c('year', 'ethn_grp', 'bmi_grp'))
-empl_bmi_grp    = trend(cross_sec, c('year', 'emp_status', 'bmi_grp')) |> filter(year >= 2016, !is.na(emp_status))
-diab_bmi_grp    = trend(cross_sec, c('year', 'diabetes', 'bmi_grp')) |> filter(year >= 2016)
-pncr_bmi_grp    = trend(cross_sec, c('year', 'pancreatic_suppl', 'bmi_grp')) |> filter(!is.na(pancreatic_suppl))
+cfrd_bmi_grp    = trend(cross_sec, c('year', 'cfrd_trt', 'bmi_grp'))
+pncr_bmi_grp    = trend(cross_sec, c('year', 'pancreatic_enzyme_suppl', 'bmi_grp')) |> 
+  filter(!is.na(pancreatic_enzyme_suppl))
+f508_bmi_grp = trend(cross_sec, c('year', 'mutation_type', 'bmi_grp'))
 
 plot_trend(overall_bmi_grp)
 plot_trend(ageg_bmi_grp, 'ageg', 'grps_ageg')
-plot_trend(cftr_bmi_grp, 'drugname', 'drugname')
-plot_trend(ethn_bmi_grp, 'ethn_grp', 'ethn')
-plot_trend(empl_bmi_grp, 'emp_status', 'empl')
-plot_trend(diab_bmi_grp, 'diabetes', 'diab')
-plot_trend(pncr_bmi_grp, 'pancreatic_suppl', 'pancreas', height = 6, width = 7.17)
+plot_trend(cfrd_bmi_grp, 'cfrd_trt', 'cfrd')
+plot_trend(pncr_bmi_grp, 'pancreatic_enzyme_suppl', 'pancreas')
+plot_trend(f508_bmi_grp, 'mutation_type', 'mutataion')
 
-cross_sec |>
+trend_overall = cross_sec |>
   mutate(ageg = 'All ages') |>
   bind_rows(cross_sec) |>
   filter(!is.na(ageg)) |>
-  mutate(ageg = factor(ageg, levels = c('All ages', '0-17', '18+'))) |>
-  ggplot() +
+  mutate(ageg = factor(ageg, levels = c('All ages', '0-17', '18+'))) 
+
+counts = trend_overall |>
+  count(ageg, year) |>
+  mutate(n = scales::label_number(accuracy = 1, big.mark = ',')(n))
+
+ggplot(trend_overall) +
   geom_boxplot(aes(x = year, y = bmi, group = year), outliers = F) +
+  geom_label(data = counts, mapping = aes(x = year, y = 3, label = n),
+            size = 2.5, colour = 'grey70', label.size = NA) +
   facet_wrap(~ageg, ncol = 1) +
   thm() +
   labs(x = 'Year', y = 'BMI', title = 'BMI over time',

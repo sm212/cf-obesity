@@ -89,20 +89,20 @@ plot_trend(pncr_bmi_grp, 'pancreatic_enzyme_suppl', 'pancreas', height = 6, widt
 plot_trend(f508_bmi_grp, 'mutation_type', 'mutataion', height = 6, width = 6)
 
 trend_overall = cross_sec |>
-  mutate(ageg = 'All ages') |>
-  bind_rows(cross_sec) |>
   filter(!is.na(ageg)) |>
-  mutate(ageg = factor(ageg, levels = c('All ages', '0-17', '18+'))) 
+  mutate(ageg = ifelse(ageg == '0-17', '0-17 (BMI z-score)', '18+ (BMI)'),
+         bmi = ifelse(ageg == '0-17 (BMI z-score)', z_score, bmi)) 
 
 counts = trend_overall |>
   count(ageg, year) |>
-  mutate(n = scales::label_number(accuracy = 1, big.mark = ',')(n))
+  mutate(n = scales::label_number(accuracy = 1, big.mark = ',')(n),
+         y = ifelse(grepl('0-17', ageg), -3, 12))
 
 ggplot(trend_overall) +
   geom_boxplot(aes(x = year, y = bmi, group = year), outliers = F) +
-  geom_label(data = counts, mapping = aes(x = year, y = 3, label = n),
+  geom_label(data = counts, mapping = aes(x = year, y = y, label = n),
             size = 2.5, colour = 'grey70', label.size = NA) +
-  facet_wrap(~ageg, ncol = 1) +
+  facet_wrap(~ageg, ncol = 1, scales = 'free_y') +
   thm() +
   labs(x = 'Year', y = 'BMI', title = 'BMI over time',
        subtitle = 'Only people with a non-missing age shown')

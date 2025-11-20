@@ -5,7 +5,7 @@ library(tidyr)
 library(lubridate)
 
 sheets = excel_sheets('data/521A_Barrett_Output.xlsx')
-missing_pct = readr::read_csv('missing_percentiles.csv')
+child_zscores = readr::read_csv('child_zscores.csv')
 annual_reviews = sheets[grepl('AR_', sheets)]
 
 # Read in sheets and combine into one dataframe
@@ -89,18 +89,15 @@ cross_sec = tmp |>
          bmi_percentile = as.double(bmi_percentile)) |>
   filter(age >= 2)
 
-# Add in missing BMI centiles for children (needed for weight categories)
-# Lookup done in python - code in repo.
-
-missing_child_bmi = cross_sec |>
-  filter(between(age, 2, 17), is.na(bmi_percentile), !is.na(bmi)) |>
-  select(regid_anon, birth_dt, review_dt, year, age, sex, bmi) |>
-  left_join(missing_pct |>
-             select(regid_anon, year, bmi_pct = bmi_percentile))
+# Add in z-scores for children & missing BMI percentiles
+child_z_scores = cross_sec |>
+  filter(age >= 2, age < 18, !is.na(bmi)) |>
+  select(regid_anon, birth_dt, review_dt, year, age, sex, bmi)
+readr::write_csv(child_z_scores, 'data/child_z_scores.csv')
 
 cross_sec = cross_sec |> 
-  left_join(missing_child_bmi |>
-              select(regid_anon, year, bmi_pct)) |>
+  left_join(child_zscores |>
+              select(regid_anon, year, z_score, bmi_pct = bmi_percentile)) |>
   mutate(bmi_percentile = ifelse(is.na(bmi_percentile), bmi_pct, bmi_percentile),
          ageg = ifelse(age < 18, '0-17', '18+'),
          bmi_grp = case_when(ageg == '0-17' & bmi_percentile < 5 ~ 'Underweight',

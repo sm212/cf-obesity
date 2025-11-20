@@ -87,7 +87,7 @@ cross_sec = tmp |>
          weight = as.double(weight),
          bmi = ifelse(is.na(bmi) & !is.na(height) & !is.na(weight), weight / (height / 100)^2, bmi),
          bmi_percentile = as.double(bmi_percentile)) |>
-  filter(age > 0)
+  filter(age >= 2)
 
 # Add in missing BMI centiles for children (needed for weight categories)
 # Lookup done in python - code in repo.

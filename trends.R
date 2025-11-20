@@ -30,6 +30,7 @@ trend = function(df, count_vars, group_vars = NULL){
   
   # Confidence intervals using wilson score method
   out = df |>
+    filter(!is.na(bmi_grp)) |>
    group_by(across(all_of(count_vars))) |>
   summarise(n = n()) |>
     ungroup() |>
@@ -38,8 +39,7 @@ trend = function(df, count_vars, group_vars = NULL){
           sd = sqrt(p * (1 - p) / n),
           lo = (2 * n + 1.96^2 - 1.96 * sqrt(1.96^2 + 4 * n * (1 - p))) / (2 * (sum(n) + 1.96^2)),
           hi = (2 * n + 1.96^2 + 1.96 * sqrt(1.96^2 + 4 * n * (1 - p))) / (2 * (sum(n) + 1.96^2))) |>
-    ungroup() |>
-    filter(!is.na(bmi_grp))
+    ungroup() 
   
   return(out)
 }
@@ -71,16 +71,22 @@ plot_trend = function(df, facet = NULL, fname = NULL, ...){
 
 overall_bmi_grp = trend(cross_sec, c('year', 'bmi_grp'))
 ageg_bmi_grp    = trend(cross_sec, c('year', 'ageg', 'bmi_grp')) 
-cfrd_bmi_grp    = trend(cross_sec, c('year', 'cfrd_trt', 'bmi_grp'))
-pncr_bmi_grp    = trend(cross_sec, c('year', 'pancreatic_enzyme_suppl', 'bmi_grp')) |> 
-  filter(!is.na(pancreatic_enzyme_suppl))
+cfrd_bmi_grp    = trend(cross_sec |>
+                          mutate(cfrd_trt = ifelse(cfrd_trt, 'On CF related diabetes treatment', 'Not on CF related diabetes treatment')),
+                        c('year', 'cfrd_trt', 'bmi_grp'))
+pncr_bmi_grp    = trend(cross_sec |> 
+                          filter(!is.na(pancreatic_enzyme_suppl)) |>
+                          mutate(pancreatic_enzyme_suppl = ifelse(pancreatic_enzyme_suppl, 
+                                                                  'Taking pancreatic enzyme supplements',
+                                                                  'Not taking pancreatic enzyme supplements')), 
+                        c('year', 'pancreatic_enzyme_suppl', 'bmi_grp')) 
 f508_bmi_grp = trend(cross_sec, c('year', 'mutation_type', 'bmi_grp'))
 
 plot_trend(overall_bmi_grp)
-plot_trend(ageg_bmi_grp, 'ageg', 'grps_ageg')
-plot_trend(cfrd_bmi_grp, 'cfrd_trt', 'cfrd')
-plot_trend(pncr_bmi_grp, 'pancreatic_enzyme_suppl', 'pancreas')
-plot_trend(f508_bmi_grp, 'mutation_type', 'mutataion')
+plot_trend(ageg_bmi_grp, 'ageg', 'grps_ageg', height = 6, width = 6)
+plot_trend(cfrd_bmi_grp, 'cfrd_trt', 'cfrd', height = 6, width = 6)
+plot_trend(pncr_bmi_grp, 'pancreatic_enzyme_suppl', 'pancreas', height = 6, width = 6)
+plot_trend(f508_bmi_grp, 'mutation_type', 'mutataion', height = 6, width = 6)
 
 trend_overall = cross_sec |>
   mutate(ageg = 'All ages') |>

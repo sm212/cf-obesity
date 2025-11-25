@@ -7,6 +7,8 @@ library(lubridate)
 sheets = excel_sheets('data/521A_Barrett_Output.xlsx')
 child_zscores = readr::read_csv('child_zscores.csv')
 annual_reviews = sheets[grepl('AR_', sheets)]
+cftr = read_excel('data/521A_Barrett_Output.xlsx', sheet = 'CFTRm') |>
+  filter(is.na(drugsdrugnameother))
 
 # Read in sheets and combine into one dataframe
 dfs = vector('list', length(annual_reviews))
@@ -38,39 +40,32 @@ tmp = reviews |>
          suppl_feed = !grepl('No|1', suppl_feed),
          fev1 = ifelse(is.na(cli_fev1_pct), s03cliqtrfev1pctpredicted, cli_fev1_pct),
          fvc = ifelse(is.na(cli_fvc_pct), s03cliqtrfvcpctpredicted, cli_fvc_pct),
-         review_dt = ifelse(is.na(visit_dt), s01encounterdate, visit_dt)) |>
+         review_dt = ifelse(is.na(visit_dt), s01encounterdate, visit_dt),
+         review_dt = as.integer(review_dt),
+         review_dt = as.Date(review_dt, origin = '1899-12-30'),
+         hosp_iv_days = ifelse(is.na(hosp_iv_days), s02hospivoveralltotaldays, hosp_iv_days),
+         home_iv_days = ifelse(is.na(home_iv_days), s02homeivoveralltotaldays, home_iv_days)) |>
   select(regid_anon, year, review_dt, bmi, bmi_percentile, height, weight,
-         pancreatic_enzyme_suppl, cfrd_trt, suppl_feed, fev1, fvc)
+         pancreatic_enzyme_suppl, cfrd_trt, suppl_feed, fev1, fvc, home_iv_days, hosp_iv_days)
 
-# Add in demographic data
+# Add in demographic data, microbiology, and CFTR time
 demographics = read_excel('data/521A_Barrett_Output.xlsx', 
                           sheet = 'Demographics')
 
-# Add in CTFR data. If multiple drugs in single year, take the drug
-# with the longest duration:
-# cftr = read_excel('data/521_Joanne_Barrett.xlsx', sheet = 'CFTRm_history') |>
-#   mutate(start_date = lubridate::ymd(stdt),
-#          end_date = lubridate::ymd(enddt),
-#          start_year = lubridate::year(start_date),
-#          end_year = lubridate::year(end_date))
-# 
-# grid = expand_grid(regid_anon = unique(demographics$regid_anon),
-#                    year = 2007:2023) |>
-#   left_join(cftr |> select(-contains('dt')), 
-#             by = c('regid_anon' = 'regid_anon', 'year' = 'start_year')) |>
-#   mutate(start_date = ifelse(is.na(start_date), lubridate::ymd(paste0(year, '-01-01')), start_date),
-#          end_date = ifelse(is.na(end_date), lubridate::ymd(paste0(year, '-12-31')), end_date),
-#          datediff = end_date - start_date,
-#          drugname = ifelse(is.na(drugname), 'None', drugname)) 
-# 
-# lkp_cftr = grid |>
-#   group_by(regid_anon, year) |>
-#   filter(datediff == max(datediff)) |>
-#   group_by(regid_anon) |>
-#   fill(drugname, .direction = 'down') |>
-#   select(regid_anon, year, drugname) |>
-#   ungroup() |>
-#   arrange(regid_anon, year)
+microbiol = reviews |>
+  select(regid_anon, year, contains('cult')) |> 
+  pivot_longer(cult_normal_flora:s05culturespeciesxanthomonas, 
+               names_to = 'cult', values_to = 'val') |>
+  filter(!grepl('normal', cult)) |>
+  mutate(val = ifelse(is.na(val), 0, 1)) |>
+  group_by(regid_anon, year) |>
+  summarise(n_microbiol = sum(val)) |>
+  ungroup()
+
+# TODO
+# cftr_time = expand_grid(review_dt = seq.Date(as.Date('2007-01-01'), as.Date('2023-12-31')),
+#                         drugname = unique(cftr$drugname)) |>
+#   left_join()
 
 cross_sec = tmp |>
   left_join(demographics |>
@@ -78,8 +73,8 @@ cross_sec = tmp |>
                      mut2 = grepl('F508del', legacyname_mut2)) |>
               select(regid_anon, sex = s01sex, ethn = s01ethnicity,
                      birth_dt = dob_anon, death_dt = dod_anon, mut1, mut2)) |>
+  left_join(microbiol) |>
   mutate(birth_dt = ymd(birth_dt),
-         review_dt = as.Date(as.integer(review_dt), origin = '1899-12-30'),
          review_dt = ymd(review_dt),
          age = interval(birth_dt, review_dt) / years(1),
          bmi = as.double(bmi),

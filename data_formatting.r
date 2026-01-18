@@ -81,6 +81,7 @@ cross_sec = tmp |>
          height = as.double(height),
          weight = as.double(weight),
          bmi = ifelse(is.na(bmi) & !is.na(height) & !is.na(weight), weight / (height / 100)^2, bmi),
+         bmi = ifelse(bmi == 0, NA, bmi),
          bmi_percentile = as.double(bmi_percentile)) |>
   filter(age >= 2)
 

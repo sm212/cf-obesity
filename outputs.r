@@ -3,8 +3,21 @@ library(ggplot2)
 library(tidyr)
 library(splines)
 
-df = readr::read_csv('data/cross_sec.csv')
+df = readr::read_csv('data/cross_sec.csv') 
 transplant = readxl::read_excel('data/521A_Barrett_Output.xlsx', sheet = 'Transplants')
+modulators = readxl::read_excel('data/521A_Barrett_Output.xlsx', sheet = 'CFTRm')
+
+mod_status = df |>
+  select(regid_anon, year, review_dt) |>
+  left_join(modulators) |>
+  mutate(review_dt = lubridate::ymd(review_dt),
+         stdt = lubridate::ymd(stdt),
+         enddt = lubridate::ymd(enddt),
+         modulator = review_dt >= stdt, review_dt < enddt) |>
+  group_by(regid_anon, year) |>
+  summarise(modulator = max(modulator)) |>
+  mutate(modulator = ifelse(is.na(modulator), 0, modulator),
+         modulator = as.logical(modulator))
 
 # Recreate figure 1 of Szentpetery et al
 df_year = data.frame(year = 2007:2022,
@@ -21,7 +34,8 @@ df |>
   filter(bmi_grp != 'Healthy weight') |> 
   mutate(clr = case_when(bmi_grp == 'Obese' ~ '#a5a5a5',
                          bmi_grp == 'Overweight' ~ '#ffda72',
-                         bmi_grp == 'Underweight' ~ '#98c3e5'),
+                         bmi_grp == 'Underweight' ~ '#98c3e5',
+                         bmi_grp == 'Healthy weight' ~ 'coral'),
          size = case_when(p < 0.03 ~ 1,
                           p < 0.06 ~ 2,
                           p < 0.09 ~ 3,
@@ -32,11 +46,107 @@ df |>
                           T ~ 8)) |>
   ggplot(aes(year, n, colour = bmi_grp)) +
   geom_point(aes(size = 1.5 * size), show.legend = T) +
-  scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 'Underweight' = '#98c3e5')) +
+  scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
+                                 'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
   scale_size_identity() +
-  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups, 2007-2023',
-       subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included')
-ggsave('img/tmp.png', dpi = 300, height = 5, width = 5, units = 'in')
+  ylim(0, 4500) +
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups, 2007-2022',
+       subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
+       caption = 'Notes: Circle size is based on # people in each group',
+       colour = NULL) +
+  theme(panel.background = element_rect(colour = 'transparent', fill = 'transparent'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/tmp.png', dpi = 300, width = 9.11, height = 4.12, units = 'in')
+
+# Split out children and adult
+df |>
+  left_join(df_year) |>
+  filter(!is.na(year_grp), !is.na(bmi_grp), ageg == '0-17') |>
+  group_by(year, bmi_grp) |>
+  summarise(n = n()) |>
+  mutate(p = n / sum(n)) |>
+  ungroup() |> 
+  filter(bmi_grp != 'Healthy weight') |> 
+  mutate(clr = case_when(bmi_grp == 'Obese' ~ '#a5a5a5',
+                         bmi_grp == 'Overweight' ~ '#ffda72',
+                         bmi_grp == 'Underweight' ~ '#98c3e5',
+                         bmi_grp == 'Healthy weight' ~ 'coral'),
+         size = case_when(p < 0.03 ~ 1,
+                          p < 0.06 ~ 2,
+                          p < 0.09 ~ 3,
+                          p < 0.12 ~ 4,
+                          p < 0.15 ~ 5,
+                          p < 0.18 ~ 6,
+                          p < 0.21 ~ 7,
+                          T ~ 8)) |>
+  ggplot(aes(year, n, colour = bmi_grp)) +
+  geom_point(aes(size = 1.5 * size), show.legend = T) +
+  scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
+                                 'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
+  scale_size_identity() +
+  ylim(0, 1000) +
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in children, 2007-2022',
+       subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
+       caption = 'Notes: Circle size is based on # people in each group',
+       colour = NULL) +
+  theme(panel.background = element_rect(colour = 'transparent', fill = 'transparent'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/trend-child.png', dpi = 300, width = 9.11, height = 4.12, units = 'in')
+
+df |>
+  left_join(df_year) |>
+  filter(!is.na(year_grp), !is.na(bmi_grp), ageg == '18+') |>
+  group_by(year, bmi_grp) |>
+  summarise(n = n()) |>
+  mutate(p = n / sum(n)) |>
+  ungroup() |> 
+  filter(bmi_grp != 'Healthy weight') |> 
+  mutate(clr = case_when(bmi_grp == 'Obese' ~ '#a5a5a5',
+                         bmi_grp == 'Overweight' ~ '#ffda72',
+                         bmi_grp == 'Underweight' ~ '#98c3e5',
+                         bmi_grp == 'Healthy weight' ~ 'coral'),
+         size = case_when(p < 0.03 ~ 1,
+                          p < 0.06 ~ 2,
+                          p < 0.09 ~ 3,
+                          p < 0.12 ~ 4,
+                          p < 0.15 ~ 5,
+                          p < 0.18 ~ 6,
+                          p < 0.21 ~ 7,
+                          T ~ 8)) |>
+  ggplot(aes(year, n, colour = bmi_grp)) +
+  geom_point(aes(size = 1.5 * size), show.legend = T) +
+  scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
+                                 'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
+  scale_size_identity() +
+  ylim(0, 2000) +
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in adults, 2007-2022',
+       subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
+       caption = 'Notes: Circle size is based on # people in each group',
+       colour = NULL) +
+  theme(panel.background = element_rect(colour = 'transparent', fill = 'transparent'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/trend-adult.png', dpi = 300, width = 9.11, height = 4.12, units = 'in')
 
 
 # Models
@@ -77,7 +187,7 @@ df_plt |>
 df_mod2 = expand_grid(regid_anon = unique(df_mod$regid_anon),
                       year = unique(df_mod$year)) |>
   left_join(df_mod |>
-              select(regid_anon, year, sex, age, ageg, bmi, bmi_grp, fev1,
+              select(regid_anon, year, sex, age, ageg, bmi, z_score, bmi_grp, fev1,
                      n_microbiol, pancreatic_enzyme_suppl)) |>
   # fill(sex:pancreatic_enzyme_suppl) |>
   group_by(regid_anon) |>
@@ -112,7 +222,8 @@ d_child = d_child[complete.cases(d_child),]
 d_child$pred = predict(m_child, newdata = d_child)
 
 d_adult = df_mod2 |>
-  filter(ageg == '18+')
+  filter(ageg == '18+') |>
+  select(-z_score) # Not available for adults
 d_adult = d_adult[complete.cases(d_adult),]
 d_adult$pred = predict(m_adult, newdata = d_adult)
 
@@ -215,11 +326,505 @@ df_lab2 = df_pred |>
   mutate(rn = row_number())
 
 df_pred2 |>
-  mutate(ageg = ifelse(age <= 17, '0-17', '18+')) |>
+  mutate(ageg = ifelse(age <= 17, '0-17', '18+'),
+         lab = case_when(age == 5 ~ '05-09',
+                         age == 10 ~ '10-14',
+                         age == 15 ~ '14-17',
+                         age == 20 ~ '20-24',
+                         age == 25 ~ '25-29',
+                         age == 30 ~ '30-34',
+                         age == 35 ~ '35-39',
+                         age == 40 ~ '40-44',
+                         age == 45 ~ '45-49',
+                         age == 50 ~ '50-54',
+                         age == 55 ~ '55-59',
+                         age == 60 ~ '60-64',
+                         age == 65 ~ '65-69',
+                         age == 70 ~ '70-75',
+                         age == 75 ~ '75-80')) |>
   # left_join(df_lab2) |>
   # mutate(rn = as.factor(rn)) |>
   filter(pred >= 0) |>
   ggplot() +
-  #geom_ribbon(aes(x = bmi, ymin = lo, ymax = hi, fill = as.factor(age)), alpha = 0.2) +
-  geom_line(aes(x = bmi, y = pred, colour = as.factor(age))) +
-  facet_wrap(~ageg)
+  geom_ribbon(aes(x = bmi, ymin = lo, ymax = hi, fill = as.factor(age)), alpha = 0.2) +
+  geom_line(aes(x = bmi, y = pred, colour = lab)) +
+  facet_wrap(~ageg) +
+  labs(x = 'Centred BMI (0 is mean BMI for the age-group, higher values mean the patient is above mean BMI)',
+       y = 'FEV1', colour = '5 year ageband',
+       title = 'Increases in BMI are more beneficial for low-weight patients',
+       subtitle = '') +
+  theme(panel.background = element_rect(colour = 'black', fill = 'transparent'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/tmp-fev-bmi.png', dpi = 300)
+
+# Lag time varying covariates
+df_mod4 = df_mod2 |>
+  group_by(regid_anon) |>
+  mutate(lag_bmi = lag(bmi), n_microbiol = lag(n_microbiol), lag_fev = lag(fev1),
+         pancreatic_enzyme_suppl = lag(pancreatic_enzyme_suppl))
+
+m_child = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl, data = df_mod4 |> filter(ageg == '0-17'))
+m_adult = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl, data = df_mod4 |> filter(ageg == '18+'))
+
+# Predictions for typical patients:
+fev_pred = function(df_args, other_args){
+ df_pred = expand_grid(!!!df_args) |>
+   mutate(!!!other_args)
+ 
+ if ('init_bmi' %in% names(df_args)){
+   df_pred$lag_bmi = df_pred$init_bmi + df_pred$chng_bmi
+ }
+ 
+ if (other_args$age < 18){
+   pred = predict(m_child, df_pred, se = T)
+ } else{
+   pred = predict(m_adult, df_pred, se = T)
+ }
+ 
+ df_pred$pred = pred$fit
+ df_pred$lower = pred$fit - 1.96 * pred$se.fit
+ df_pred$upper = pred$fit + 1.96 * pred$se.fit
+ 
+ return(df_pred)
+}
+
+all_preds = bind_rows(
+  fev_pred(list(sex = c('M', 'F'), lag_bmi = seq(10, 30, by = 0.1)),
+           list(age = 10, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, chng_bmi = 0, lag_fev = 70)) |>
+    mutate(ageg = 'Child', vary = 'BMI'),
+  fev_pred(list(sex = c('M', 'F'), init_bmi = seq(10, 30, by = 5), 
+                chng_bmi = seq(0, 20, by = 0.1)),
+           list(age = 10, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 70)) |>  
+    mutate(ageg = 'Child', vary = 'Change in BMI'),
+  fev_pred(list(sex = c('M', 'F'), lag_bmi = seq(10, 30, by = 0.1)),
+           list(age = 40, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, chng_bmi = 0, lag_fev = 66)) |>
+    mutate(ageg = 'Adult', vary = 'BMI'),
+  fev_pred(list(sex = c('M', 'F'), init_bmi = seq(10, 30, by = 5), 
+                chng_bmi = seq(0, 20, by = 0.1)),
+           list(age = 40, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 66)) |>  
+    mutate(ageg = 'Adult', vary = 'Change in BMI')
+)
+
+# Not very useful - probably better to just show an actual plot of the data...
+all_preds |>
+  filter(vary == 'BMI') |>
+  ggplot(aes(fill = sex)) +
+  geom_ribbon(aes(x = lag_bmi, ymin = lower, ymax = upper), alpha = 0.4) +
+  geom_line(aes(x = lag_bmi, y = pred)) +
+  facet_grid(ageg~sex) 
+
+# Something like this
+df_mod4 |>
+  filter(ageg == '0-17', between(z_score, -3, 3)) |>
+  ggplot(aes(z_score, fev1)) +
+  geom_point(alpha = 0.03, size = 0.3) +
+  geom_smooth(se = T) +
+  ylim(0, 150) +
+  labs(x = 'Z score', y = 'FEV1', 
+       title = 'Association between current FEV & current BMI: Children') +
+  theme(panel.background = element_blank(),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/assoc-fev-bmi-child.png', dpi = 300, height = 4.12, width = 6, units = 'in')
+
+df_mod4 |>
+  filter(ageg == '18+', between(bmi, 10, 40)) |>
+  ggplot(aes(bmi, fev1)) +
+  geom_point(alpha = 0.03, size = 0.3) +
+  geom_smooth(se = T) +
+  ylim(0, 150) +
+  labs(x = 'BMI', y = 'FEV1', 
+       title = 'Association between current FEV & current BMI: Adults') +
+  theme(panel.background = element_blank(),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/assoc-fev-bmi-adult.png', dpi = 300, height = 4.12, width = 6, units = 'in')
+
+all_preds |>
+  filter(vary == 'Change in BMI', sex == 'F',
+         !(ageg == 'Adult' & init_bmi == 10)) |>
+  mutate(init_bmi = as.factor(init_bmi),
+         ageg = factor(ageg, levels = c('Child', 'Adult'))) |> 
+  ggplot(aes(fill = init_bmi, colour = init_bmi)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  facet_wrap(~ageg, nrow = 1) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'Initial BMI',
+       fill = 'Initial BMI', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+  
+# Split by on / off modulators
+df_mod4 = df_mod4 |>
+  left_join(mod_status)
+
+m_child = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl + chng_bmi * modulator, 
+             data = df_mod4 |> filter(ageg == '0-17'))
+m_adult = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl + chng_bmi * modulator,
+             data = df_mod4 |> filter(ageg == '18+'))
+
+all_preds_mod = bind_rows(
+  fev_pred(list(sex = c('M', 'F'), init_bmi = seq(10, 30, by = 5), 
+                chng_bmi = seq(0, 20, by = 0.1), modulator = c(T, F)),
+           list(age = 10, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 70)) |>  
+    mutate(ageg = 'Child', vary = 'Change in BMI'),
+  fev_pred(list(sex = c('M', 'F'), init_bmi = seq(10, 30, by = 5), 
+                chng_bmi = seq(0, 20, by = 0.1), modulator = c(T, F)),
+           list(age = 40, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 66)) |>  
+    mutate(ageg = 'Adult', vary = 'Change in BMI')
+)
+
+all_preds_mod |>
+  filter(vary == 'Change in BMI', sex == 'F',
+         !(ageg == 'Adult' & init_bmi == 10)) |>
+  mutate(init_bmi = as.factor(init_bmi),
+         modulator = ifelse(modulator, 'On modulator', 'Off modulator'),
+         ageg = factor(ageg, levels = c('Child', 'Adult'))) |> 
+  ggplot(aes(fill = init_bmi, colour = init_bmi)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  facet_grid(ageg~modulator) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'Modulator status',
+       fill = 'Modulator status', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-mod.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+
+# Update after December meeting - change chart to show each weight group
+# Just get typical BMI values for each category. For children the BMI values
+# correspond to the 4, 70, 85, and 97th centiles respectively
+
+m_child = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl + chng_bmi, 
+             data = df_mod4 |> filter(ageg == '0-17'))
+m_adult = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl + chng_bmi,
+             data = df_mod4 |> filter(ageg == '18+'))
+
+df_plt = bind_rows(
+  fev_pred(list(sex = c('M', 'F'), init_bmi = c(14.2, 18.5, 19.8, 23.1), 
+                chng_bmi = seq(0, 20, by = 0.1)),
+           list(age = 10, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 70)) |>  
+    mutate(ageg = 'Child', vary = 'Change in BMI'),
+  fev_pred(list(sex = c('M', 'F'), init_bmi = c(15, 23, 28, 33), 
+                chng_bmi = seq(0, 20, by = 0.1)),
+           list(age = 40, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 66)) |>  
+    mutate(ageg = 'Adult', vary = 'Change in BMI')) |>
+  filter(sex == 'F') |>
+  mutate(weight_cat = case_when(init_bmi %in% c(14.2, 15) ~ 'Underweight',
+                                init_bmi %in% c(18.5, 23) ~ 'Healthy weight',
+                                init_bmi %in% c(19.8, 28) ~ 'Overweight',
+                                init_bmi %in% c(23.1, 33) ~ 'Obese'),
+         weight_cat = factor(weight_cat, levels = c('Underweight', 'Healthy weight',
+                                                    'Overweight', 'Obese')),
+         ageg = factor(ageg, levels = c('Child', 'Adult'))) 
+
+df_plt |> 
+  ggplot(aes(fill = weight_cat, colour = weight_cat)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  facet_wrap(~ageg, nrow = 1) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
+       fill = 'Initial BMI', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-cat.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+df_plt |>
+  filter(ageg == 'Child') |>
+  ggplot(aes(fill = weight_cat, colour = weight_cat)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
+       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-cat-child.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+df_plt |>
+  filter(ageg == 'Adult') |>
+  ggplot(aes(fill = weight_cat, colour = weight_cat)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
+       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-cat-adult.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+
+m_child = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl + chng_bmi * modulator, 
+             data = df_mod4 |> filter(ageg == '0-17'))
+m_adult = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
+               pancreatic_enzyme_suppl + chng_bmi * modulator,
+             data = df_mod4 |> filter(ageg == '18+'))
+
+all_preds_mod = bind_rows(
+  fev_pred(list(sex = c('M', 'F'), init_bmi = c(14.2, 18.5, 19.8, 23.1), 
+                chng_bmi = seq(0, 20, by = 0.1), modulator = c(T, F)),
+           list(age = 10, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 70)) |>  
+    mutate(ageg = 'Child', vary = 'Change in BMI'),
+  fev_pred(list(sex = c('M', 'F'), init_bmi = c(15, 23, 28, 33), 
+                chng_bmi = seq(0, 20, by = 0.1), modulator = c(T, F)),
+           list(age = 40, n_microbiol = mean(df_mod2$n_microbiol, na.rm = T),
+                pancreatic_enzyme_suppl = T, lag_fev = 66)) |>  
+    mutate(ageg = 'Adult', vary = 'Change in BMI')
+)
+
+df_plt_mod = all_preds_mod |>
+  filter(sex == 'F') |>
+  mutate(weight_cat = case_when(init_bmi %in% c(14.2, 15) ~ 'Underweight',
+                                init_bmi %in% c(18.5, 23) ~ 'Healthy weight',
+                                init_bmi %in% c(19.8, 28) ~ 'Overweight',
+                                init_bmi %in% c(23.1, 33) ~ 'Obese'),
+         weight_cat = factor(weight_cat, levels = c('Underweight', 'Healthy weight',
+                                                    'Overweight', 'Obese')),
+         modulator = ifelse(modulator, 'On modulator', 'Off modulator'),
+         ageg = factor(ageg, levels = c('Child', 'Adult'))) 
+
+df_plt_mod |> 
+  ggplot(aes(fill = weight_cat, colour = weight_cat)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  facet_grid(ageg~modulator) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
+       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-mod-cat.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+df_plt_mod |> 
+  filter(ageg == 'Child') |>
+  ggplot(aes(fill = weight_cat, colour = weight_cat)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  facet_wrap(~modulator) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
+       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-mod-cat-child.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+df_plt_mod |> 
+  filter(ageg == 'Adult') |>
+  ggplot(aes(fill = weight_cat, colour = weight_cat)) +
+  geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
+  geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
+  geom_hline(aes(yintercept = 0)) +
+  facet_wrap(~modulator) +
+  ylim(-20, 30) +
+  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
+       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/chng-fev-chng-bmi-mod-cat-adult.png', dpi = 300, height = 5, width = 10, units = 'in')
+
+# Table 1
+tab1_p1 = df |>
+  mutate(bmi = ifelse(bmi > 70, NA, bmi),
+         z_score = ifelse(abs(z_score) > 4, NA, z_score)) |>
+  group_by(regid_anon) |>
+  arrange(year) |>
+  slice(1) |>
+  group_by(ageg) |>
+  summarise(n = n(),
+            age_lo = min(age, na.rm = T),
+            age_hi = max(age, na.rm = T),
+            med_bmi = median(bmi, na.rm = T),
+            bmi_lo = min(bmi, na.rm = T),
+            bmi_hi = max(bmi, na.rm = T),
+            med_z = median(z_score, na.rm = T),
+            z_lo = min(z_score, na.rm = T),
+            z_hi = max(z_score, na.rm = T))
+
+tab1_p2 = df |>
+  group_by(regid_anon) |>
+  arrange(year) |>
+  slice(1) |>
+  ungroup() |>
+  filter(!is.na(bmi_grp)) |>
+  count(ageg, bmi_grp) |>
+  pivot_wider(names_from = 'bmi_grp', values_from = 'n')
+
+tab1_p1 |>
+  left_join(tab1_p2)
+
+paed = df |>
+  group_by(regid_anon) |>
+  arrange(year) |>
+  slice(1) |>
+  filter(ageg == '0-17') |>
+  pull(regid_anon)
+
+df |>
+  filter(regid_anon %in% paed) |>
+  count(regid_anon) |>
+  pull(n) |>
+  median()
+
+df |>
+  filter(!regid_anon %in% paed) |>
+  count(regid_anon) |>
+  pull(n) |>
+  median()
+
+df |>
+  filter(ageg == '18+') |>
+  group_by(year, bmi_grp) |>
+  summarise(n = n()) |>
+  mutate(p = n / sum(n),
+         over_ob = bmi_grp %in% c('Overweight', 'Obese')) |>
+  summarise(p_over_ob = sum(p * over_ob))
+
+
+child = df |>
+  filter(ageg == '0-17') |>
+  group_by(year) |>
+  summarise(n = n(),
+            n_valid_bmi = sum(!is.na(bmi_grp)),
+            med = median(z_score, na.rm = T),
+            q25 = quantile(z_score, .25, na.rm = T),
+            q75 = quantile(z_score, .75, na.rm = T),
+            n_under = sum(bmi_grp == 'Underweight', na.rm = T),
+            n_healthy = sum(bmi_grp == 'Healthy weight', na.rm = T),
+            n_over = sum(bmi_grp == 'Overweight', na.rm = T),
+            n_obese = sum(bmi_grp == 'Obese', na.rm = T)) 
+
+adult = df |>
+  filter(ageg == '18+') |>
+  group_by(year) |>
+  summarise(n = n(),
+            n_valid_bmi = sum(!is.na(bmi_grp)),
+            med = median(bmi, na.rm = T),
+            q25 = quantile(bmi, .25, na.rm = T),
+            q75 = quantile(bmi, .75, na.rm = T),
+            n_under = sum(bmi_grp == 'Underweight', na.rm = T),
+            n_healthy = sum(bmi_grp == 'Healthy weight', na.rm = T),
+            n_over = sum(bmi_grp == 'Overweight', na.rm = T),
+            n_obese = sum(bmi_grp == 'Obese', na.rm = T))
+
+bind_rows(child |> mutate(grp = 'Child'),
+          adult |> mutate(grp = 'Adult')) |>
+  readr::write_csv('numbers.csv')
+
+# Extra bits for abstract
+
+# 'Higher BMI z-scores are associated with better FEV on / off modulators'
+a = df |>
+  left_join(mod_status) |>
+  filter(ageg == '0-17') |>
+  mutate(z_grp = case_when(z_score < -1 ~ 'Low',
+                           z_score > 1 ~ 'High',
+                           T ~ 'Normal'),
+         z_grp = factor(z_grp, levels = c('Normal', 'Low', 'High'))) |>
+  filter(!is.na(z_grp), !is.na(fev1), !is.na(modulator))
+
+summary(lm(fev1 ~ z_grp, data = a |> filter(modulator)))
+summary(lm(fev1 ~ z_grp, data = a |> filter(!modulator)))
+summary(lm(fev1 ~ z_grp * modulator, data = a))

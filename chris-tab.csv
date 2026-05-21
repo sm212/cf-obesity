@@ -1,0 +1,5 @@
+bmi_grp,sex_male,sex_female,fev_lt40,fev_4070,fev_7090,fev_90p,diabetes,no_diabetes,pert,no_pert,mod,no_mod
+Healthy weight,1766,1677,347,982,1024,892,1274,2169,2924,507,3000,443
+Obese,282,302,39,164,193,150,152,432,346,233,481,103
+Overweight,1094,642,115,464,591,475,552,1184,1347,380,1519,217
+Underweight,121,152,59,85,59,38,110,163,239,33,213,60

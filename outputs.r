@@ -71,13 +71,14 @@ df |>
   filter(!is.na(year_grp), !is.na(bmi_grp), ageg == '0-17') |>
   group_by(year, bmi_grp) |>
   summarise(n = n()) |>
-  mutate(p = n / sum(n)) |>
+  mutate(p = n / sum(n),
+         bmi_grp = ifelse(bmi_grp == 'Healthy weight', 'Target range', bmi_grp)) |>
   ungroup() |> 
-  filter(bmi_grp != 'Healthy weight') |> 
+  filter(bmi_grp != 'Target range') |> 
   mutate(clr = case_when(bmi_grp == 'Obese' ~ '#a5a5a5',
                          bmi_grp == 'Overweight' ~ '#ffda72',
                          bmi_grp == 'Underweight' ~ '#98c3e5',
-                         bmi_grp == 'Healthy weight' ~ 'coral'),
+                         bmi_grp == 'Target range' ~ 'coral'),
          size = case_when(p < 0.03 ~ 1,
                           p < 0.06 ~ 2,
                           p < 0.09 ~ 3,
@@ -91,8 +92,8 @@ df |>
   scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
                                  'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
   scale_size_identity() +
-  ylim(0, 1000) +
-  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in children, 2007-2022',
+  #ylim(0, 1000) +
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in 15 year old children, 2007-2022',
        subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
        caption = 'Notes: Circle size is based on # people in each group',
        colour = NULL) +
@@ -112,13 +113,14 @@ df |>
   filter(!is.na(year_grp), !is.na(bmi_grp), ageg == '18+') |>
   group_by(year, bmi_grp) |>
   summarise(n = n()) |>
-  mutate(p = n / sum(n)) |>
+  mutate(p = n / sum(n),
+         bmi_grp = ifelse(bmi_grp == 'Healthy weight', 'Target range', bmi_grp)) |>
   ungroup() |> 
-  filter(bmi_grp != 'Healthy weight') |> 
+  #filter(bmi_grp != 'Target range') |>
   mutate(clr = case_when(bmi_grp == 'Obese' ~ '#a5a5a5',
                          bmi_grp == 'Overweight' ~ '#ffda72',
                          bmi_grp == 'Underweight' ~ '#98c3e5',
-                         bmi_grp == 'Healthy weight' ~ 'coral'),
+                         bmi_grp == 'Target range' ~ 'coral'),
          size = case_when(p < 0.03 ~ 1,
                           p < 0.06 ~ 2,
                           p < 0.09 ~ 3,
@@ -130,11 +132,11 @@ df |>
   ggplot(aes(year, n, colour = bmi_grp)) +
   geom_point(aes(size = 1.5 * size), show.legend = T) +
   scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
-                                 'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
+                                 'Underweight' = '#98c3e5', 'Target range' = 'coral')) +
   scale_size_identity() +
-  ylim(0, 2000) +
+  ylim(0, 4000) +
   labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in adults, 2007-2022',
-       subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
+       subtitle = 'UK CF registry data. All people aged 18+ with a valid BMI included',
        caption = 'Notes: Circle size is based on # people in each group',
        colour = NULL) +
   theme(panel.background = element_rect(colour = 'transparent', fill = 'transparent'),
@@ -150,14 +152,16 @@ ggsave('img/trend-adult.png', dpi = 300, width = 9.11, height = 4.12, units = 'i
 
 
 # Models
-# Remove people after lung transplant + get rid of weird BMI / FEV1 values
+# Remove people after lung transplant + get rid of weird BMI / FEV1 values.
+# Update 26-03-19: Remove people aged < 6 with an FEV, as FEV measurements unreliable
 lung_transplant = transplant |>
   filter(lungtx == 1)
 
 df_mod = df |>
   left_join(lung_transplant) |>
-  mutate(yearlungtx = ifelse(is.na(yearlungtx), 9999, yearlungtx)) |>
-  filter(!is.na(bmi), !is.na(fev1), 
+  mutate(yearlungtx = ifelse(is.na(yearlungtx), 9999, yearlungtx),
+         remove = age < 6 & !is.na(fev1)) |>
+  filter(!is.na(bmi), !is.na(fev1), !remove,
          bmi < 50, fev1 < 200, bmi > 10, year < yearlungtx)
 
 # Overall trends:
@@ -451,6 +455,7 @@ df_mod4 |>
   ggplot(aes(bmi, fev1)) +
   geom_point(alpha = 0.03, size = 0.3) +
   geom_smooth(se = T) +
+  geom_vline(aes(xintercept = 25), lty = 2, colour = 'coral') +
   ylim(0, 150) +
   labs(x = 'BMI', y = 'FEV1', 
        title = 'Association between current FEV & current BMI: Adults') +
@@ -543,6 +548,9 @@ ggsave('img/chng-fev-chng-bmi-mod.png', dpi = 300, height = 5, width = 10, units
 # Update after December meeting - change chart to show each weight group
 # Just get typical BMI values for each category. For children the BMI values
 # correspond to the 4, 70, 85, and 97th centiles respectively
+# Also remove anyone age < 6 from data as FEV is unreliable
+
+df_mod4 = filter(df_mod4, age >= 6, year != 2017)
 
 m_child = lm(fev1 - lag_fev ~ ns(lag_bmi, 4) * chng_bmi + lag_fev + age + sex + n_microbiol +
                pancreatic_enzyme_suppl + chng_bmi, 
@@ -578,6 +586,7 @@ df_plt |>
   geom_hline(aes(yintercept = 0)) +
   facet_wrap(~ageg, nrow = 1) +
   ylim(-20, 30) +
+  xlim(0, 10) +
   labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
        fill = 'Initial BMI', title = 'How does changing BMI affect FEV1') +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
@@ -598,6 +607,7 @@ df_plt |>
   geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
   geom_hline(aes(yintercept = 0)) +
   ylim(-20, 30) +
+  xlim(0, 10) +
   labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
        fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
@@ -618,6 +628,7 @@ df_plt |>
   geom_line(aes(x = chng_bmi, y = pred), linewidth = 1.2) +
   geom_hline(aes(yintercept = 0)) +
   ylim(-20, 30) +
+  xlim(0, 10) +
   labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
        fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
@@ -670,6 +681,7 @@ df_plt_mod |>
   geom_hline(aes(yintercept = 0)) +
   facet_grid(ageg~modulator) +
   ylim(-20, 30) +
+  xlim(0, 10) +
   labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
        fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
@@ -691,6 +703,7 @@ df_plt_mod |>
   geom_hline(aes(yintercept = 0)) +
   facet_wrap(~modulator) +
   ylim(-20, 30) +
+  xlim(0, 10) +
   labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
        fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
@@ -712,6 +725,7 @@ df_plt_mod |>
   geom_hline(aes(yintercept = 0)) +
   facet_wrap(~modulator) +
   ylim(-20, 30) +
+  xlim(0, 10) +
   labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
        fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
@@ -818,7 +832,7 @@ bind_rows(child |> mutate(grp = 'Child'),
 # 'Higher BMI z-scores are associated with better FEV on / off modulators'
 a = df |>
   left_join(mod_status) |>
-  filter(ageg == '0-17') |>
+  filter(ageg == '0-17', age >= 6) |>
   mutate(z_grp = case_when(z_score < -1 ~ 'Low',
                            z_score > 1 ~ 'High',
                            T ~ 'Normal'),
@@ -828,3 +842,157 @@ a = df |>
 summary(lm(fev1 ~ z_grp, data = a |> filter(modulator)))
 summary(lm(fev1 ~ z_grp, data = a |> filter(!modulator)))
 summary(lm(fev1 ~ z_grp * modulator, data = a))
+
+
+# Table similar to Salvatore et al
+df |>
+  filter(ageg != '0-17', year == max(year), !is.na(bmi_grp)) |>
+  left_join(mod_status) |>
+  group_by(bmi_grp) |>
+  summarise(sex_male = sum(sex == 'M'),
+            sex_female = sum(sex == 'F'),
+            fev_lt40 = sum(fev1 < 40 & age >= 6, na.rm = T),
+            fev_4070 = sum(fev1 >= 40 & fev1 < 70 & age >= 6, na.rm = T),
+            fev_7090 = sum(fev1 >= 70 & fev1 < 90 & age >= 6, na.rm = T),
+            fev_90p = sum(fev1 >= 90 & age >= 6, na.rm = T),
+            diabetes = sum(cfrd_trt),
+            no_diabetes = sum(!cfrd_trt),
+            pert = sum(pancreatic_enzyme_suppl, na.rm = T),
+            no_pert = sum(!pancreatic_enzyme_suppl, na.rm = T),
+            mod = sum(modulator),
+            no_mod = sum(!modulator)) |>
+  readr::write_csv('chris-tab.csv')
+
+
+# Scatter of BMI over time in adults
+t = df |>
+  filter(ageg == '18+', between(bmi, 0, 60)) |>
+  mutate(bmi_grp = ifelse(bmi_grp == 'Healthy weight', 'Target range', bmi_grp),
+         bmi_grp = factor(bmi_grp, levels = c('Underweight', 'Target range',
+                                              'Overweight', 'Obese')))
+
+meds = t |>
+  group_by(year) |>
+  summarise(m = median(bmi),
+            q25 = quantile(bmi, 0.25),
+            q75 = quantile(bmi, 0.75))
+
+ggplot() +
+  geom_jitter(data = t, size = 1,
+              mapping = aes(x = bmi, y = as.factor(year), colour = bmi_grp),
+              width = 0, height = 0.3, alpha = 0.1) +
+  geom_point(data = meds, mapping = aes(x = m, y = as.factor(year)),
+             size = 3, colour = 'black') +
+  coord_flip() +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  labs(y = NULL, x = 'BMI', colour = NULL, title = 'BMI distribution over time',
+       subtitle = 'All adults age 18+ with a BMI measurement are shown.\nBlack dots are the median annual BMI') +
+  theme(panel.background = element_rect(colour = 'transparent', fill = 'transparent'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        legend.position = 'bottom',
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/bmi-dist-adult.png', height = 6, width = 7, units = 'in')
+
+
+
+# Scatter of BMI over time in children
+t = df |>
+  filter(ageg != '18+', between(bmi, 0, 60)) |>
+  mutate(bmi_grp = ifelse(bmi_grp == 'Healthy weight', 'Target range', bmi_grp),
+         bmi_grp = factor(bmi_grp, levels = c('Underweight', 'Target range',
+                                              'Overweight', 'Obese')))
+
+meds = t |>
+  group_by(year) |>
+  summarise(m = median(z_score),
+            q25 = quantile(z_score, 0.25),
+            q75 = quantile(z_score, 0.75))
+
+ggplot() +
+  geom_jitter(data = t |> filter(abs(z_score) < 3), size = 1,
+              mapping = aes(x = z_score, y = as.factor(year), colour = bmi_grp),
+              width = 0, height = 0.3, alpha = 0.3) +
+  geom_point(data = meds, mapping = aes(x = m, y = as.factor(year)),
+             size = 3, colour = 'black') +
+  coord_flip() +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  labs(y = NULL, x = 'BMI', colour = NULL, title = 'BMI distribution over time',
+       subtitle = 'All children age 2-17 with a BMI measurement are shown.\nBlack dots are the median annual BMI') +
+  theme(panel.background = element_rect(colour = 'transparent', fill = 'transparent'),
+        strip.background = element_rect(colour = 'black'),
+        legend.key = element_blank(),
+        legend.position = 'bottom',
+        panel.grid = element_blank(),
+        panel.grid.major = element_line(colour = 'grey90'),
+        plot.title.position = 'plot',
+        plot.title = element_text(size = 15, face = 'bold.italic'),
+        plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
+                                     colour = 'grey50'))
+ggsave('img/bmi-dist-child.png', height = 6, width = 7, units = 'in')
+
+
+df |>
+  left_join(mod_status) |>
+  mutate(ageg2 = case_when(between(age, 18, 20) ~ '18-20',
+                           between(age, 20, 29) ~ '20-29',
+                           between(age, 30, 39) ~ '30-39',
+                           between(age, 40, 49) ~ '40-49',
+                           between(age, 50, 999) ~ '50+',
+                           T ~ 'ignore')) |>
+  filter(year %in% range(year), ageg2 != 'ignore', !is.na(bmi_grp)) |>
+  group_by(bmi_grp, year) |>
+  summarise(n = n(),
+            n_1820 = sum(ageg2 == '18-20'),
+            n_2029 = sum(ageg2 == '20-29'),
+            n_3039 = sum(ageg2 == '30-39'),
+            n_4049 = sum(ageg2 == '40-49'),
+            n_50p = sum(ageg2 == '50+'),
+            sex_male = sum(sex == 'M'),
+            sex_female = sum(sex == 'F'),
+            fev_lt40 = sum(fev1 < 40 & age >= 6, na.rm = T),
+            fev_4070 = sum(fev1 >= 40 & fev1 < 70 & age >= 6, na.rm = T),
+            fev_7090 = sum(fev1 >= 70 & fev1 < 90 & age >= 6, na.rm = T),
+            fev_90p = sum(fev1 >= 90 & age >= 6, na.rm = T),
+            diabetes = sum(cfrd_trt),
+            no_diabetes = sum(!cfrd_trt),
+            pert = sum(pancreatic_enzyme_suppl, na.rm = T),
+            no_pert = sum(!pancreatic_enzyme_suppl, na.rm = T),
+            mod = sum(modulator),
+            no_mod = sum(!modulator)) |>
+  readr::write_csv('tmp2.csv')
+
+df |>
+  group_by(regid_anon) |>
+  arrange(year) |>
+  mutate(year_diff = year - lag(year, 2)) |>
+  filter(year_diff == 2) |>
+  group_by(ageg, regid_anon) |>
+  summarise(bmi_diff = bmi - lag(bmi)) |>
+  filter(abs(bmi_diff) < 40) |>
+  group_by(ageg) |>
+  summarise(lo = min(bmi_diff, na.rm = T),
+          med = median(bmi_diff, na.rm = T),
+          q25 = quantile(bmi_diff, 0.25, na.rm = T),
+          q75 = quantile(bmi_diff, 0.75, na.rm = T),
+          hi = max(bmi_diff, na.rm = T))
+
+df |>
+  group_by(regid_anon) |>
+  arrange(year) |>
+  mutate(bmi_diff = bmi - lag(bmi),
+         bmi_diff2 = bmi - lag(bmi, 2)) |>
+  group_by(ageg) |>
+  filter(abs(bmi_diff2) < 40) |>
+  summarise(lo = min(bmi_diff2, na.rm = T),
+            med = median(bmi_diff2, na.rm = T),
+            q25 = quantile(bmi_diff2, 0.25, na.rm = T),
+            q75 = quantile(bmi_diff2, 0.75, na.rm = T),
+            hi = max(bmi_diff2, na.rm = T),
+            n_5p = sum(bmi_diff2 >= 5),
+            n = n())

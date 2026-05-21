@@ -7,11 +7,13 @@ library(ggplot2)
 # Lots of mutations in demographics - how to group?
 # For rows missing BMI or BMI percentile - lookup tables to get the missing one?
 cross_sec = readr::read_csv('data/cross_sec.csv') |>
-  mutate(bmi_grp = factor(bmi_grp, levels = c('Underweight', 'Healthy weight',
+  mutate(bmi_grp = ifelse(bmi_grp == 'Healthy weight', 'Target range', bmi_grp),
+         bmi_grp = factor(bmi_grp, levels = c('Underweight', 'Target range',
                                               'Overweight', 'Obese')),
          mutation_type = case_when(mut1 & mut2 ~ 'Homozygous F508del',
                                    mut1 + mut2 == 1 ~ 'Heterozygous F508del',
-                                   T ~ 'Other - no F508del'))
+                                   T ~ 'Other - no F508del')) |>
+  filter(ageg == '18+')
 
 thm = function(){
   theme() %+replace% 

@@ -74,7 +74,8 @@ cross_sec = tmp |>
               select(regid_anon, sex = s01sex, ethn = s01ethnicity,
                      birth_dt = dob_anon, death_dt = dod_anon, mut1, mut2)) |>
   left_join(microbiol) |>
-  mutate(birth_dt = ymd(birth_dt),
+  mutate(bmi = ifelse(bmi == 0, NA, bmi),
+         birth_dt = ymd(birth_dt),
          review_dt = ymd(review_dt),
          age = interval(birth_dt, review_dt) / years(1),
          bmi = as.double(bmi),

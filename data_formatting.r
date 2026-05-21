@@ -82,7 +82,6 @@ cross_sec = tmp |>
          height = as.double(height),
          weight = as.double(weight),
          bmi = ifelse(is.na(bmi) & !is.na(height) & !is.na(weight), weight / (height / 100)^2, bmi),
-         bmi = ifelse(bmi == 0, NA, bmi),
          bmi_percentile = as.double(bmi_percentile)) |>
   filter(age >= 2)
 
@@ -105,5 +104,18 @@ cross_sec = cross_sec |>
                              ageg == '18+' & bmi < 25 ~ 'Healthy weight',
                              ageg == '18+' & bmi < 30 ~ 'Overweight',
                              ageg == '18+' & bmi >= 30 ~ 'Obese')) 
+
+# Extra check for the weird BMI values in 2017: Calculate based on height & weight
+# if the results are very different to the registry value, take the calculated one
+cross_sec |>
+  mutate(calc_bmi = weight / (height / 100)^2,
+         diff_bmi = abs(calc_bmi - bmi)) |>
+  filter(bmi < 60, calc_bmi < 60) |>
+  ggplot(aes(bmi, calc_bmi)) +
+  geom_abline() +
+  geom_point() +
+  facet_wrap(~year, scales = 'free_y') +
+  xlim(0, 65) +
+  ylim(0, 65) # Not much different...
 
 readr::write_csv(cross_sec, 'data/cross_sec.csv')

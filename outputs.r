@@ -50,7 +50,7 @@ df |>
                                  'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
   scale_size_identity() +
   ylim(0, 4500) +
-  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups, 2007-2022',
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups, 2007-2023',
        subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
        caption = 'Notes: Circle size is based on # people in each group',
        colour = NULL) +
@@ -93,7 +93,7 @@ df |>
                                  'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
   scale_size_identity() +
   #ylim(0, 1000) +
-  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in 15 year old children, 2007-2022',
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in 15 year old children, 2007-2023',
        subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
        caption = 'Notes: Circle size is based on # people in each group',
        colour = NULL) +
@@ -135,7 +135,7 @@ df |>
                                  'Underweight' = '#98c3e5', 'Target range' = 'coral')) +
   scale_size_identity() +
   ylim(0, 4000) +
-  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in adults, 2007-2022',
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in adults, 2007-2023',
        subtitle = 'UK CF registry data. All people aged 18+ with a valid BMI included',
        caption = 'Notes: Circle size is based on # people in each group',
        colour = NULL) +
@@ -572,10 +572,10 @@ df_plt = bind_rows(
     mutate(ageg = 'Adult', vary = 'Change in BMI')) |>
   filter(sex == 'F') |>
   mutate(weight_cat = case_when(init_bmi %in% c(14.2, 15) ~ 'Underweight',
-                                init_bmi %in% c(18.5, 23) ~ 'Healthy weight',
+                                init_bmi %in% c(18.5, 23) ~ 'Target range',
                                 init_bmi %in% c(19.8, 28) ~ 'Overweight',
                                 init_bmi %in% c(23.1, 33) ~ 'Obese'),
-         weight_cat = factor(weight_cat, levels = c('Underweight', 'Healthy weight',
+         weight_cat = factor(weight_cat, levels = c('Underweight', 'Target range',
                                                     'Overweight', 'Obese')),
          ageg = factor(ageg, levels = c('Child', 'Adult'))) 
 
@@ -621,7 +621,7 @@ df_plt |>
                                      colour = 'grey50'))
 ggsave('img/chng-fev-chng-bmi-cat-child.png', dpi = 300, height = 5, width = 10, units = 'in')
 
-df_plt |>
+df_plt |> 
   filter(ageg == 'Adult') |>
   ggplot(aes(fill = weight_cat, colour = weight_cat)) +
   geom_ribbon(aes(x = chng_bmi, ymin = lower, ymax = upper), alpha = 0.2, colour = 'transparent') +
@@ -964,7 +964,7 @@ df |>
             pert = sum(pancreatic_enzyme_suppl, na.rm = T),
             no_pert = sum(!pancreatic_enzyme_suppl, na.rm = T),
             mod = sum(modulator),
-            no_mod = sum(!modulator)) |>
+            no_mod = sum(!modulator)) |> View()
   readr::write_csv('tmp2.csv')
 
 df |>

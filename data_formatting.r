@@ -107,12 +107,18 @@ cross_sec = cross_sec |>
 
 # Extra check for the weird BMI values in 2017: Calculate based on height & weight
 # if the results are very different to the registry value, take the calculated one
-tmp |>
+tmp |> 
+  left_join(demographics |>
+              mutate(mut1 = grepl('F508del', legacyname_mut1), 
+                     mut2 = grepl('F508del', legacyname_mut2)) |>
+              select(regid_anon, sex = s01sex, ethn = s01ethnicity,
+                     birth_dt = dob_anon, death_dt = dod_anon, mut1, mut2)) |>
   mutate(height = as.numeric(height),
          weight = as.numeric(weight),
+         age = interval(birth_dt, review_dt) / years(1),
          bmi = as.numeric(bmi),
          calc_bmi = weight / (height / 100)^2,
-         diff_bmi = abs(calc_bmi - bmi)) |> 
+         diff_bmi = abs(calc_bmi - bmi)) |> #select(regid_anon, year, age, bmi, calc_bmi) |> readr::write_csv('calc_bmi.csv')
   filter(bmi < 60, calc_bmi < 60) |> 
   ggplot(aes(bmi, calc_bmi)) +
   geom_abline() +

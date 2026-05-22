@@ -107,15 +107,18 @@ cross_sec = cross_sec |>
 
 # Extra check for the weird BMI values in 2017: Calculate based on height & weight
 # if the results are very different to the registry value, take the calculated one
-cross_sec |>
-  mutate(calc_bmi = weight / (height / 100)^2,
-         diff_bmi = abs(calc_bmi - bmi)) |>
-  filter(bmi < 60, calc_bmi < 60) |>
+tmp |>
+  mutate(height = as.numeric(height),
+         weight = as.numeric(weight),
+         bmi = as.numeric(bmi),
+         calc_bmi = weight / (height / 100)^2,
+         diff_bmi = abs(calc_bmi - bmi)) |> 
+  filter(bmi < 60, calc_bmi < 60) |> 
   ggplot(aes(bmi, calc_bmi)) +
   geom_abline() +
   geom_point() +
   facet_wrap(~year, scales = 'free_y') +
   xlim(0, 65) +
-  ylim(0, 65) # Not much different...
+  ylim(0, 65) # Not much different... will need to calculate z-scores again
 
 readr::write_csv(cross_sec, 'data/cross_sec.csv')

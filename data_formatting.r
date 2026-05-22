@@ -118,7 +118,7 @@ tmp |>
          age = interval(birth_dt, review_dt) / years(1),
          bmi = as.numeric(bmi),
          calc_bmi = weight / (height / 100)^2,
-         diff_bmi = abs(calc_bmi - bmi)) |> #select(regid_anon, year, age, bmi, calc_bmi) |> readr::write_csv('calc_bmi.csv')
+         diff_bmi = abs(calc_bmi - bmi)) |> #select(regid_anon, year, review_dt, birth_dt, sex, age, bmi, calc_bmi) |> readr::write_csv('calc_bmi.csv')
   filter(bmi < 60, calc_bmi < 60) |> 
   ggplot(aes(bmi, calc_bmi)) +
   geom_abline() +

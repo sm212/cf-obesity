@@ -85,12 +85,6 @@ cross_sec = tmp |>
          bmi_percentile = as.double(bmi_percentile)) |>
   filter(age >= 2)
 
-# Add in z-scores for children & missing BMI percentiles
-child_z_scores = cross_sec |>
-  filter(age >= 2, age < 18, !is.na(bmi)) |>
-  select(regid_anon, birth_dt, review_dt, year, age, sex, bmi)
-readr::write_csv(child_z_scores, 'data/child_z_scores.csv')
-
 cross_sec = cross_sec |> 
   left_join(child_zscores |>
               select(regid_anon, year, z_score, bmi_pct = bmi_percentile)) |>
@@ -118,7 +112,7 @@ tmp |>
          age = interval(birth_dt, review_dt) / years(1),
          bmi = as.numeric(bmi),
          calc_bmi = weight / (height / 100)^2,
-         diff_bmi = abs(calc_bmi - bmi)) |> #select(regid_anon, year, review_dt, birth_dt, sex, age, bmi, calc_bmi) |> readr::write_csv('calc_bmi.csv')
+         diff_bmi = abs(calc_bmi - bmi)) |> select(regid_anon, year, review_dt, birth_dt, sex, age, bmi = calc_bmi) |> readr::write_csv('calc_bmi.csv')
   filter(bmi < 60, calc_bmi < 60) |> 
   ggplot(aes(bmi, calc_bmi)) +
   geom_abline() +

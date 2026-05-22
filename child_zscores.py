@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from rcpchgrowth import Measurement
 
-df = pd.read_csv('data/child_z_scores.csv')
+df = pd.read_csv('calc_bmi.csv')
+df = df[df['age'] < 18]
+print(df.shape)
 df['sex'] = df['sex'].replace({'F' : 'female', 'M' : 'male'})
 df['birth_dt'] = pd.to_datetime(df['birth_dt']).dt.date
 df['review_dt'] = pd.to_datetime(df['review_dt']).dt.date

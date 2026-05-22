@@ -87,7 +87,7 @@ cross_sec = tmp |>
 
 cross_sec = cross_sec |> 
   left_join(child_zscores |>
-              select(regid_anon, year, z_score, bmi_pct = bmi_percentile)) |>
+              select(regid_anon, year, z_score, bmi_pct = pctile)) |>
   mutate(bmi_percentile = ifelse(is.na(bmi_percentile), bmi_pct, bmi_percentile),
          ageg = ifelse(age < 18, '0-17', '18+'),
          bmi_grp = case_when(ageg == '0-17' & bmi_percentile < 5 ~ 'Underweight',

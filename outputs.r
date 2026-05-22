@@ -92,8 +92,9 @@ df |>
   scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
                                  'Underweight' = '#98c3e5', 'Healthy weight' = 'coral')) +
   scale_size_identity() +
+  guides(colour = guide_legend(override.aes = list(size = 5))) +
   #ylim(0, 1000) +
-  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in 15 year old children, 2007-2023',
+  labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in children, 2007-2023',
        subtitle = 'UK CF registry data. All people aged 2+ with a valid BMI included',
        caption = 'Notes: Circle size is based on # people in each group',
        colour = NULL) +
@@ -105,7 +106,8 @@ df |>
         plot.title.position = 'plot',
         plot.title = element_text(size = 15, face = 'bold.italic'),
         plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
-                                     colour = 'grey50'))
+                                     colour = 'grey50'),
+        legend.position = 'bottom')
 ggsave('img/trend-child.png', dpi = 300, width = 9.11, height = 4.12, units = 'in')
 
 df |>
@@ -134,6 +136,7 @@ df |>
   scale_colour_manual(values = c('Obese' = '#a5a5a5', 'Overweight' = '#ffda72', 
                                  'Underweight' = '#98c3e5', 'Target range' = 'coral')) +
   scale_size_identity() +
+  guides(colour = guide_legend(override.aes = list(size = 5))) +
   ylim(0, 4000) +
   labs(x = 'Year', y = NULL, title = 'Change in distribution of weight groups in adults, 2007-2023',
        subtitle = 'UK CF registry data. All people aged 18+ with a valid BMI included',
@@ -147,7 +150,8 @@ df |>
         plot.title.position = 'plot',
         plot.title = element_text(size = 15, face = 'bold.italic'),
         plot.subtitle = element_text(size = 13, face = 'italic', hjust = 0.02,
-                                     colour = 'grey50'))
+                                     colour = 'grey50'),
+        legend.position = 'bottom')
 ggsave('img/trend-adult.png', dpi = 300, width = 9.11, height = 4.12, units = 'in')
 
 
@@ -354,7 +358,7 @@ df_pred2 |>
   geom_line(aes(x = bmi, y = pred, colour = lab)) +
   facet_wrap(~ageg) +
   labs(x = 'Centred BMI (0 is mean BMI for the age-group, higher values mean the patient is above mean BMI)',
-       y = 'FEV1', colour = '5 year ageband',
+       y = expression(FEV[1]), colour = '5 year ageband',
        title = 'Increases in BMI are more beneficial for low-weight patients',
        subtitle = '') +
   theme(panel.background = element_rect(colour = 'black', fill = 'transparent'),
@@ -437,8 +441,8 @@ df_mod4 |>
   geom_point(alpha = 0.03, size = 0.3) +
   geom_smooth(se = T) +
   ylim(0, 150) +
-  labs(x = 'Z score', y = 'FEV1', 
-       title = 'Association between current FEV & current BMI: Children') +
+  labs(x = 'Z score', y = expression(FEV[1]), 
+       title = expression(paste('Association between current ', FEV[1], ' & current BMI: Children'))) +
   theme(panel.background = element_blank(),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -457,8 +461,8 @@ df_mod4 |>
   geom_smooth(se = T) +
   geom_vline(aes(xintercept = 25), lty = 2, colour = 'coral') +
   ylim(0, 150) +
-  labs(x = 'BMI', y = 'FEV1', 
-       title = 'Association between current FEV & current BMI: Adults') +
+  labs(x = 'BMI', y = expression(FEV[1]), 
+       title = expression(paste('Association between current ', FEV[1], ' & current BMI: Adults'))) +
   theme(panel.background = element_blank(),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -481,8 +485,9 @@ all_preds |>
   geom_hline(aes(yintercept = 0)) +
   facet_wrap(~ageg, nrow = 1) +
   ylim(-20, 30) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'Initial BMI',
-       fill = 'Initial BMI', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), 
+       colour = 'Initial BMI', fill = 'Initial BMI', 
+       title = expression(paste('How does changing BMI affect ',  FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -531,8 +536,9 @@ all_preds_mod |>
   geom_hline(aes(yintercept = 0)) +
   facet_grid(ageg~modulator) +
   ylim(-20, 30) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'Modulator status',
-       fill = 'Modulator status', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), 
+       colour = 'Modulator status', fill = 'Modulator status', 
+       title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -587,8 +593,8 @@ df_plt |>
   facet_wrap(~ageg, nrow = 1) +
   ylim(-20, 30) +
   xlim(0, 10) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
-       fill = 'Initial BMI', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), colour = 'BMI category',
+       fill = 'Initial BMI', title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -608,8 +614,8 @@ df_plt |>
   geom_hline(aes(yintercept = 0)) +
   ylim(-20, 30) +
   xlim(0, 10) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
-       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), colour = 'BMI category',
+       fill = 'BMI category', title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -629,8 +635,8 @@ df_plt |>
   geom_hline(aes(yintercept = 0)) +
   ylim(-20, 30) +
   xlim(0, 10) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
-       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), colour = 'BMI category',
+       fill = 'BMI category', title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -682,8 +688,8 @@ df_plt_mod |>
   facet_grid(ageg~modulator) +
   ylim(-20, 30) +
   xlim(0, 10) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
-       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), colour = 'BMI category',
+       fill = 'BMI category', title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -704,8 +710,8 @@ df_plt_mod |>
   facet_wrap(~modulator) +
   ylim(-20, 30) +
   xlim(0, 10) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
-       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), colour = 'BMI category',
+       fill = 'BMI category', title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -726,8 +732,8 @@ df_plt_mod |>
   facet_wrap(~modulator) +
   ylim(-20, 30) +
   xlim(0, 10) +
-  labs(x = 'Change in BMI', y = 'Change in FEV1', colour = 'BMI category',
-       fill = 'BMI category', title = 'How does changing BMI affect FEV1') +
+  labs(x = 'Change in BMI', y = expression(paste('Change in ', FEV[1])), colour = 'BMI category',
+       fill = 'BMI category', title = expression(paste('How does changing BMI affect ', FEV[1]))) +
   theme(panel.background = element_rect(fill = 'transparent', colour = 'black'),
         strip.background = element_rect(colour = 'black'),
         legend.key = element_blank(),
@@ -910,9 +916,9 @@ t = df |>
 
 meds = t |>
   group_by(year) |>
-  summarise(m = median(z_score),
-            q25 = quantile(z_score, 0.25),
-            q75 = quantile(z_score, 0.75))
+  summarise(m = median(z_score, na.rm = T),
+            q25 = quantile(z_score, 0.25, na.rm = T),
+            q75 = quantile(z_score, 0.75, na.rm = T))
 
 ggplot() +
   geom_jitter(data = t |> filter(abs(z_score) < 3), size = 1,
@@ -964,7 +970,7 @@ df |>
             pert = sum(pancreatic_enzyme_suppl, na.rm = T),
             no_pert = sum(!pancreatic_enzyme_suppl, na.rm = T),
             mod = sum(modulator),
-            no_mod = sum(!modulator)) |> View()
+            no_mod = sum(!modulator)) |> 
   readr::write_csv('tmp2.csv')
 
 df |>
